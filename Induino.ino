@@ -201,6 +201,7 @@ void loop()
     Serial.print("Nenhuma cor detectada entre as cadastradas.");
     ultima_Cor = 0;
   }
+  //modelo de estrutura para adicionar cores
   /*
   else if(faixa( red, cor[0] ) && faixa(green, cor[1]) && faixa( blue, cor[2]) ) // cor
   { 
