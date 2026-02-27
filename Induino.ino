@@ -23,19 +23,23 @@
 #define PIN_SERVO_ESQ 2
 #define PIN_SERVO_DIR 3
 
-#define LedEnable 5
+#define LedEnable_integrated 5
+#define LedEnable_dedicated 6
 
 // --- Calibração Servos ---
 #define PARADO 90 
-#define MAX_FRENTE_ESQ 135 
-#define MAX_TRAS_ESQ 45     
-#define MAX_FRENTE_DIR 45 
-#define MAX_TRAS_DIR 135   
+#define MAX_FRENTE_ESQ 180 
+#define MAX_TRAS_ESQ 0     
+#define MAX_FRENTE_DIR 20 
+#define MAX_TRAS_DIR 180   
 
-#define INTERVALO 15
+#define INTERVALO 10
+
 
 // Flags de Estado
 bool detectouCor = false; 
+
+bool velocidade = false;
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_60X);
 Servo servoEsq;
@@ -49,8 +53,8 @@ int roxo[3] = {58, 75, 128};
 int amarelo[3] = {111, 104, 59};
 
 void parar() {
-  servoEsq.write(PARADO);
-  servoDir.write(PARADO);
+  servoEsq.write(PARADO );
+  servoDir.write(PARADO );
 }
 
 void moverFrente() {
@@ -86,79 +90,88 @@ void setup() {
   servoDir.attach(PIN_SERVO_DIR);
   parar(); 
   
-  pinMode(LedEnable, OUTPUT);
-  digitalWrite(LedEnable, HIGH); // Liga LED para calibração inicial
-
-  if (tcs.begin()) {
+  pinMode(LedEnable_integrated, OUTPUT);
+  analogWrite(LedEnable_integrated, 200); 
+  analogWrite(LedEnable_dedicated, 90);
+  if (tcs.begin()) 
+  {
     Serial.println("Sensor encontrado");
-  } else {
-    Serial.println("TCS34725 nao encontrado. Travando.");
+  } else 
+  {
+    Serial.println("TCS34725 nao encontrado. reinicie o robô.");
     while (1);
   }
 }
 
-void loop() {
-  // CORREÇÃO: LED ligado para leitura
-  digitalWrite(LedEnable, HIGH);
-  
+void loop() 
+{
   float r, g, b;
   tcs.getRGB(&r, &g, &b);
 
   // Debug (opcional, remova para performance)
-  // Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
+  Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
 
-  if (verificaCor(r, g, b, verde)) {
-    if (!detectouCor) {
-      Serial.println("Verde: FRENTE 3s");
+  if (verificaCor(r, g, b, verde)) 
+  {
+    if (!detectouCor) 
+    {
+      velocidade = true;
+      delay(3000);
+      Serial.println("Verde: FRENTE");
       moverFrente();
-      delay(3000); // Bloqueante: O robô anda 3s sem ler sensores
       detectouCor = true;
+      
     }
   }
-  else if (verificaCor(r, g, b, azul)) {
-    if (!detectouCor) {
+  else if (verificaCor(r, g, b, azul)) 
+  {
+    if (!detectouCor && velocidade) 
+    {
       Serial.println("Azul: VIRAR DIR + FRENTE");
       virarDireita();
       delay(800); // CORREÇÃO: Tempo para realizar a curva
       moverFrente();
-      delay(1000); // Tempo andando reto após a curva
       detectouCor = true;
     }
   }
-  else if (verificaCor(r, g, b, vermelho)) {
-    if (!detectouCor) {
+  else if (verificaCor(r, g, b, vermelho)) 
+  {
+    if (!detectouCor && velocidade) 
+    {
       Serial.println("Vermelho: PARAR 3s");
       parar();
-      delay(3000);
+      delay(5000);
       detectouCor = true;
+      velocidade = false;//fim de percurso
     }
   }
-  else if (verificaCor(r, g, b, roxo)) {
-    if (!detectouCor) {
+  else if (verificaCor(r, g, b, roxo)) 
+  {
+    if (!detectouCor && velocidade) 
+    {
       Serial.println("Roxo: VIRAR ESQ + FRENTE");
       virarEsquerda();
       delay(800); // CORREÇÃO: Tempo para realizar a curva
       moverFrente();
-      delay(1000);
       detectouCor = true;
     }
   }
-  else if (verificaCor(r, g, b, amarelo)) {
-    if (!detectouCor) {
+  else if (verificaCor(r, g, b, amarelo)) 
+  {
+    if (!detectouCor && velocidade) 
+    {
       Serial.println("Amarelo: COMEMORA");
       comemora();
-      delay(1000); // CORREÇÃO: Tempo para executar o giro
+      delay(5000); // CORREÇÃO: Tempo para executar o giro
       parar();
       detectouCor = true;
+      velocidade = false;//fim de percurso
     }
   }
-  else {
-    // CORREÇÃO LÓGICA: Só reseta a flag se estiver vendo "chão" (fora das cores)
-    // Isso evita re-trigger imediato enquanto ainda está passando sobre o cartão
+  else 
+  {
     Serial.println("Cor desconhecida / Chão");
     detectouCor = false; 
     
-    // Opcional: Manter movimento anterior ou parar se não ver cor
-    // parar(); 
   }
 }
