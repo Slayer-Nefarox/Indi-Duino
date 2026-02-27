@@ -17,6 +17,7 @@ https://repositorio.ufms.br/handle/123456789/12544
 - **SCL** → A5
 - **SDA** → A4
 - **LED** → d5 (pwm)
+- **LED2** → d6 (pwm)
 
 #### Servos - Arduino Nano
 - **Servo1** → d2
