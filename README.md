@@ -1,6 +1,7 @@
 # Indi-Duino
 Indi-Duino: uma alternativa para Sphero indi com Arduino Nano.
-
+# ALERTA: PROJETO EM ANDAMENTO
+## Código Incompleto
 ## Descrição
 Este projeto consiste em um robô baseado em Arduino nano que utiliza um sensor de cores TCS3472 para interpretar cartões coloridos e mover-se conforme a cor detectada. O robô agora usa servomotores 360 ligados diretamente e um giroscópio para movimentação e ajustes de localização.
 
