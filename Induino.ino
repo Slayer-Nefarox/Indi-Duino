@@ -10,267 +10,318 @@
 //in1 --------------- d2
 //in2 --------------- d3
 
-/* gyroscope (BMI160)
-VIN → 5V 
-GND → GND
-SCX → D13 (SCK)
-SDX → D12 (MISO)
-SDA → D11 (MOSI)
-CS → D10 (pino digital configurado como Chip Select)
-*/
+// gyroscope (BMI160)
+//VIN --------------- 5V 
+//GND --------------- GND
+//Scl --------------- A5
+//Sda --------------- A4
 
-//Adicionar Biblioteca "Adafruit_TCS34725.h" ao Arduino IDE 2.0
-//Possivel encontrar em https://github.com/adafruit/Adafruit_TCS34725
-//Adicionar via "bibliotecas" na arduino IDE 2.0 também é possivel, e BEM mais viável.
-//Bibliotecas Servo.h e SPI.h são padrão no ambiente de execução. Não é necessário adicionar.
+//Adicionar Biblioteca Adafruit_TCS34725.h e DFRobot_BMI160.h ao Arduino IDE 2.0
+//Adicionar via "bibliotecas" na arduino IDE 2.0
+//Bibliotecas Servo.h e Wire.h é padrão no ambiente de execução. Não é necessário importar para a IDE.
 
 
 #include <Wire.h>
 #include "Adafruit_TCS34725.h"
 #include <Servo.h> 
-#include <SPI.h>
-
+#include <DFRobot_BMI160.h>
 
 // --- Configuração ---
 #define PIN_SERVO_ESQ 2
 #define PIN_SERVO_DIR 3
 
-#define LedEnable1 5
-#define LedEnable2 6
-
-#define PIN_CS 10
+#define LedEnable_integrated 5
+#define LedEnable_dedicated 6
 
 // --- Calibração Servos ---
-#define PARADO 90 
-#define MAX_FRENTE_ESQ 180 
-#define MAX_TRAS_ESQ 0     
-#define MAX_FRENTE_DIR 20 
-#define MAX_TRAS_DIR 180   
+#define VELOCIDADE 50
+const int PARADO =0;
+const int velFrentEsq = VELOCIDADE;
+const int velTrasEsq = -VELOCIDADE;    
+const int VelFrentDir = -VELOCIDADE;
+const int velTrasDir = VELOCIDADE;  
 
-#define INTERVALO 30
+#define INTERVALO 10
 
-// =====================
-// Registradores
-// =====================
-const uint8_t REG_CMD        = 0x7E;
-const uint8_t REG_GYRO_X_L   = 0x0C;
-const uint8_t REG_GYRO_RANGE = 0x43;
-const uint8_t REG_GYRO_CONF  = 0x42;
-
-// =====================
-// Escala
-// =====================
-const float GYRO_SCALE_250DPS = 131.2; // LSB/(°/s) para ±250 dps
-
-// =====================
-// Variáveis
-// =====================
-int16_t rawX, rawY, rawZ;
-float gyroX, gyroY, gyroZ;
-
+#define ANGULO_CURVA 10
 
 // Flags de Estado
-bool detectou_Cor_Antes = false; 
+bool detectouCor = false; 
+
+bool movimentoEnable = false;
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_60X);
 Servo servoEsq;
 Servo servoDir;
 
+int angular(int velocidade)
+{
+  return map(velocidade, -100, 100,0,180 );
+}
+
 // Cores alvo (R, G, B)
-int verde[3] = {55, 122, 75};
-int vermelho[3] = {179, 48, 42};
-int azul[3] = {23, 90, 143};
-int roxo[3] = {58, 75, 128};
-int amarelo[3] = {111, 104, 59};
-
-
-void writeRegister(uint8_t reg, uint8_t data) {
-  digitalWrite(PIN_CS, LOW);
-  SPI.transfer(reg & 0x7F);  // bit7 = 0 → write
-  SPI.transfer(data);
-  digitalWrite(PIN_CS, HIGH);
-}
-
-void readRegisters(uint8_t reg, uint8_t count, uint8_t* buffer) {
-  digitalWrite(PIN_CS, LOW);
-  SPI.transfer(reg | 0x80);  // bit7 = 1 → read
-  for (uint8_t i = 0; i < count; i++) {
-    buffer[i] = SPI.transfer(0x00);
-  }
-  digitalWrite(PIN_CS, HIGH);
-}
+int verde[3] = {67, 115, 71};
+int vermelho[3] = {178, 44, 44};
+int azul[3] = {31, 86, 147};
+int roxo[3] = {67, 66, 126};
+int amarelo[3] = {150, 117, 57};
 
 void parar() {
-  servoEsq.write(PARADO);
-  servoDir.write(PARADO);
+  servoEsq.write(angular(PARADO));
+  servoDir.write(angular(PARADO));
 }
 
 void moverFrente() {
-  servoEsq.write(MAX_FRENTE_ESQ);
-  servoDir.write(MAX_FRENTE_DIR);
+  servoEsq.write(angular(velFrentEsq));
+  servoDir.write(angular(VelFrentDir));
 }
 
-// CORREÇÃO: Removemos moverFrente() daqui para permitir controle temporal no loop
 void virarDireita() {
-  servoEsq.write(MAX_FRENTE_ESQ);
-  servoDir.write(PARADO); 
+  servoEsq.write(angular(velFrentEsq));
+  servoDir.write(angular(PARADO)); 
 }
 
 void virarEsquerda() {
-  servoDir.write(MAX_FRENTE_DIR);
-  servoEsq.write(PARADO);
+  servoDir.write(angular(VelFrentDir));
+  servoEsq.write(angular(PARADO));
 }
 
 void comemora() {
-  servoDir.write(MAX_FRENTE_DIR);
-  servoEsq.write(MAX_TRAS_ESQ);
+  servoDir.write(angular(VelFrentDir));
+  servoEsq.write(angular(velTrasEsq));
 }
 
-void read_position(uint8_t vetorbuffer[])
-{
-   readRegisters(REG_GYRO_X_L, 6, vetorbuffer);
-
-  rawX = vetorbuffer[1] << 8 | vetorbuffer[0];
-  rawY = vetorbuffer[3] << 8 | vetorbuffer[2];
-  rawZ = vetorbuffer[5] << 8 | vetorbuffer[4];
-
-  gyroX = rawX / GYRO_SCALE_250DPS;
-  gyroY = rawY / GYRO_SCALE_250DPS;
-  gyroZ = rawZ / GYRO_SCALE_250DPS;
-
-  Serial.print("Gx: ");
-  Serial.print(gyroX);
-  Serial.print(" | Gy: ");
-  Serial.print(gyroY);
-  Serial.print(" | Gz: ");
-  Serial.println(gyroZ);
-}
-
-bool verificaCor(float r, float g, float b, int alvo[]) 
-{
+bool verificaCor(float r, float g, float b, int alvo[]) {
   return (r > alvo[0] - INTERVALO && r < alvo[0] + INTERVALO) &&
          (g > alvo[1] - INTERVALO && g < alvo[1] + INTERVALO) &&
          (b > alvo[2] - INTERVALO && b < alvo[2] + INTERVALO);
 }
 
+// ---------- gyro
+
+DFRobot_BMI160 bmi160;
+const int8_t i2c_addr = 0x69;
+
+// Configurações de Filtro e Amostragem
+const int BUFFER_SIZE = 1; 
+const int CALIBRATION_SAMPLES = 200;
+
+// Buffers para Rotação
+float bufferGyroX[BUFFER_SIZE], bufferGyroY[BUFFER_SIZE], bufferGyroZ[BUFFER_SIZE];
+int bufferIndex = 0;
+
+// Offsets e Variáveis de Estado
+float gyroOffsetX = 0, gyroOffsetY = 0, gyroOffsetZ = 0;
+float angleX = 0, angleY = 0, angleZ = 0;
+float avgAngleX = 0, avgAngleY = 0, avgAngleZ = 0;
+
+unsigned long lastTime;
+
+
+
+float rotInicial = 0;
+bool girando = false;
+int direcaoGiro = 0; // -1 esquerda, +1 direita
+
+void calibrateGyro() {
+  int16_t data[6];
+  long sx = 0, sy = 0, sz = 0;
+  for (int i = 0; i < CALIBRATION_SAMPLES; i++) {
+    if (bmi160.getAccelGyroData(data) == 0) {
+      sx += data[0]; sy += data[1]; sz += data[2];
+    }
+    delay(1);
+  }
+  gyroOffsetX = sx / (float)CALIBRATION_SAMPLES;
+  gyroOffsetY = sy / (float)CALIBRATION_SAMPLES;
+  gyroOffsetZ = sz / (float)CALIBRATION_SAMPLES;
+}
+
+float normalize360(float angle) {
+  float result = fmod(angle, 360.0);
+  if (result < 0) result += 360.0;
+  return result;
+}
+
+void calculateAverages() {
+  float tx = 0, ty = 0, tz = 0;
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    tx += bufferGyroX[i];
+    ty += bufferGyroY[i];
+    tz += bufferGyroZ[i];
+  }
+  avgAngleX = tx / (float)BUFFER_SIZE;
+  avgAngleY = ty / (float)BUFFER_SIZE;
+  avgAngleZ = tz / (float)BUFFER_SIZE;
+}
+
 void setup() 
 {
   Serial.begin(9600);
+  Serial.println("serial Initialized");
   servoEsq.attach(PIN_SERVO_ESQ);
   servoDir.attach(PIN_SERVO_DIR);
   parar(); 
-
-  //gyro-----------------------
-  pinMode(PIN_CS, OUTPUT);
-  digitalWrite(PIN_CS, HIGH);  // Mantém desativado
-
-  SPI.begin();  // Inicializa SPI
-
-  // Configura SPI (modo 0, até 1 MHz seguro)
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-
-  delay(100);
-
-  // Coloca giroscópio em modo normal
-  writeRegister(REG_CMD, 0x15);  // 0x15 = gyro normal mode
-  delay(100);
-
-  // Configura faixa ±250 dps
-  writeRegister(REG_GYRO_RANGE, 0x00);
-
-  // Configura ODR padrão (100 Hz)
-  writeRegister(REG_GYRO_CONF, 0x28);
-
-  //------------------------------
-  //TCS---------------------------
   
-  pinMode(LedEnable1, OUTPUT);
-  analogWrite(LedEnable1, 125); // Liga LED para calibração inicial
-  pinMode(LedEnable2, OUTPUT);
-  analogWrite(LedEnable2, 80); // Liga LED para calibração inicial
+  pinMode(LedEnable_integrated, OUTPUT);
+  pinMode(LedEnable_dedicated, OUTPUT);
   
-  
+  analogWrite(LedEnable_integrated, 200); 
+  analogWrite(LedEnable_dedicated, 90);
+
   if (tcs.begin()) 
   {
-    Serial.println("Sensor encontrado");
+    Serial.println("Sensor RGB encontrado");
   } 
   else 
   {
-    Serial.println("TCS34725 nao encontrado. Travando.");
-    while (1);
+    while (1)
+    {
+      Serial.println("TCS34725 nao encontrado. reinicie o robô.");
+    }
   }
+  // ------------ gyro
+  if (bmi160.softReset() != BMI160_OK || bmi160.I2cInit(i2c_addr) != BMI160_OK) while(1);
+
+  calibrateGyro();
+  lastTime = micros();
 }
 
 void loop() 
 {
-
   float r, g, b;
   tcs.getRGB(&r, &g, &b);
 
   // Debug (opcional, remova para performance)
   //Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
+  // inicialização do giroscópio no loop
+  int16_t raw[6];
+  unsigned long currentTime = micros();
+  float dt = (currentTime - lastTime) / 1000000.0;
+  lastTime = currentTime;
 
-  uint8_t buffer[6];
+  //---------------------- recuperação de angulos e buffers do giroscópio
+  if (bmi160.getAccelGyroData(raw) == 0) {
+    // Conversão para DPS (Graus por Segundo)
+    float gx = (raw[0] - gyroOffsetX) / 131.0;
+    float gy = (raw[1] - gyroOffsetY) / 131.0;
+    float gz = (raw[2] - gyroOffsetZ) / 131.0;
 
-  read_position(buffer);
+    // Integração para obter ângulo
+    angleX += gx * dt;
+    angleY += gy * dt;
+    angleZ += gz * dt;
 
+    // Normalização 0-359 e atualização de buffer
+    bufferGyroX[bufferIndex] = angleX;
+    bufferGyroY[bufferIndex] = angleY;
+    bufferGyroZ[bufferIndex] = angleZ;
+    bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+
+    calculateAverages();
+
+    //Serial.print("X:"); Serial.print(avgAngleX); Serial.print("\t");
+    //Serial.print("Y:"); Serial.print(avgAngleY); Serial.print("\t");
+    Serial.print("Z:"); Serial.println(avgAngleZ);
+  }
+
+  // lógica de verificação de cores
   if (verificaCor(r, g, b, verde)) 
   {
-    if (!detectou_Cor_Antes) 
+    if (!detectouCor && !movimentoEnable) 
     {
+      movimentoEnable = true;
       delay(3000);
       Serial.println("Verde: FRENTE");
       moverFrente();
-      detectou_Cor_Antes = true;
+      detectouCor = true;
     }
   }
+
   else if (verificaCor(r, g, b, azul)) 
   {
-    if (!detectou_Cor_Antes) 
+    if (!detectouCor && movimentoEnable) 
     {
       Serial.println("Azul: VIRAR DIR + FRENTE");
-      virarDireita();
-      delay(800); // CORREÇÃO: Tempo para realizar a curva
-      moverFrente();
-      detectou_Cor_Antes = true;
+      rotInicial = avgAngleZ;
+      girando = true;
+      direcaoGiro = -1;
+      detectouCor = true;
     }
   }
+
   else if (verificaCor(r, g, b, vermelho)) 
   {
-    if (!detectou_Cor_Antes) 
+    if (!detectouCor && movimentoEnable) 
     {
       Serial.println("Vermelho: PARAR");
       parar();
-      delay(5000);
-      detectou_Cor_Antes = true;
+      detectouCor = true;
+      movimentoEnable = false;
     }
   }
+
   else if (verificaCor(r, g, b, roxo)) 
   {
-    if (!detectou_Cor_Antes) 
+    if (!detectouCor && movimentoEnable) 
     {
       Serial.println("Roxo: VIRAR ESQ + FRENTE");
-      virarEsquerda();
-      delay(800); // CORREÇÃO: Tempo para realizar a curva
-      moverFrente();
-      detectou_Cor_Antes = true;
+      rotInicial = avgAngleZ;
+      girando = true;
+      direcaoGiro = 1;
+      detectouCor = true;
     }
   }
+
   else if (verificaCor(r, g, b, amarelo)) 
   {
-    if (!detectou_Cor_Antes) 
+    if (!detectouCor && movimentoEnable) 
     {
       Serial.println("Amarelo: COMEMORA");
       comemora();
-      delay(5000); // CORREÇÃO: Tempo para executar o giro
+      delay(5000);
       parar();
-      detectou_Cor_Antes = true;
+      detectouCor = true;
+      movimentoEnable = false;
     }
   }
+
   else 
   {
     //Serial.println("Cor desconhecida / Chão");
-    detectou_Cor_Antes = false; 
-    
+    detectouCor = false;
+  }
+  //caso esteja virando
+  if (girando)
+  {
+    float delta = avgAngleZ - rotInicial;
+
+    if (direcaoGiro == 1) // direita
+    {
+      if (delta < ANGULO_CURVA)
+      {
+        virarEsquerda();
+      }
+      else
+      {
+        girando = false;
+        moverFrente();
+      }
+    }
+
+    if (direcaoGiro == -1) // esquerda
+    {
+      if (delta > -ANGULO_CURVA)
+      {
+        virarDireita();
+      }
+      else
+      {
+        girando = false;
+        moverFrente();
+      }
+    }
+  }
+}
   }
 }
