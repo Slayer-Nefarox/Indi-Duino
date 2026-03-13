@@ -34,12 +34,13 @@
 #define LedEnable_dedicated 6
 
 // --- Calibração Servos ---
-#define VELOCIDADE 50
+#define VELOCIDADE_L 50 // -------->Caso motores desiguais, calibrar aqui
+#define VELOCIDADE_R 50
 const int PARADO =0;
-const int velFrentEsq = VELOCIDADE;
-const int velTrasEsq = -VELOCIDADE;    
-const int VelFrentDir = -VELOCIDADE;
-const int velTrasDir = VELOCIDADE;  
+const int velFrentEsq = VELOCIDADE_L;
+const int velTrasEsq = -VELOCIDADE_L;    
+const int VelFrentDir = -VELOCIDADE_R;
+const int velTrasDir = VELOCIDADE_R;  
 
 #define INTERVALO 10
 
