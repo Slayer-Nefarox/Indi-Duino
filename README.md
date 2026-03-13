@@ -28,6 +28,7 @@ https://repositorio.ufms.br/handle/123456789/12544
 - **Sensor de Cores Adafruit TCS3472**
 - **Servos MG90S 360**
 - **Cartões coloridos para controle do movimento**
+- **bateria 9v**
 
 ## Dependências
 Antes de carregar o código no Arduino, instale a biblioteca necessária:
