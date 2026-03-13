@@ -4,6 +4,12 @@ Indi-Duino: uma alternativa para Sphero indi com Arduino Uno R3.
 ## Descrição
 Este projeto consiste em um robô baseado em Arduino Uno R3 que utiliza um sensor de cores TCS34725 para interpretar cartões coloridos e mover-se conforme a cor detectada. O robô é equipado com uma ponte H para controle dos motores e pode acelerar, desacelerar, virar à direita ou à esquerda conforme os cartões.
 
+Esta Branch será mantida como está, desde que é meu projeto origianl de conclusão de curso de graduação.
+Todo e qualquer desenvolvimento e refino de funcionamento será feito na Branch V2.
+Agradeço a todos que apoiaram essa luta.
+A ideia sempre foi provar que para aqueles que sabem, sempre há uma alternativa á versão patenteada. 
+E provado foi.
+
 ## Trabalho Descritivo do Processo de Criação (TCC - UFMS)
 https://repositorio.ufms.br/handle/123456789/12544
 
