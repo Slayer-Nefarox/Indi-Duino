@@ -6,7 +6,7 @@
 //Sda --------------- A4
 //Led --------------- d5 (Pwm)
 
-//Ponte H ----------- Arduino Nano
+//Servos tower 360 ----------- Arduino Nano
 //in1 --------------- d2
 //in2 --------------- d3
 
@@ -27,13 +27,14 @@
 #define LedEnable_dedicated 6
 
 // --- Calibração Servos ---
-#define PARADO 90 
-#define MAX_FRENTE_ESQ 180 
-#define MAX_TRAS_ESQ 0     
-#define MAX_FRENTE_DIR 20 
-#define MAX_TRAS_DIR 180   
+#define VELOCIDADE 50
+const int PARADO =0;
+const int velFrentEsq = VELOCIDADE;
+const int velTrasEsq = -VELOCIDADE;    
+const int VelFrentDir = -VELOCIDADE;
+const int velTrasDir = VELOCIDADE;  
 
-#define INTERVALO 10
+#define INTERVALO 18
 
 
 // Flags de Estado
@@ -45,61 +46,79 @@ Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS3472
 Servo servoEsq;
 Servo servoDir;
 
+int angular(int velocidade)
+{
+  return map(velocidade, -100, 100,0,180 );
+}
+
 // Cores alvo (R, G, B)
-int verde[3] = {55, 122, 75};
-int vermelho[3] = {179, 48, 42};
-int azul[3] = {23, 90, 143};
-int roxo[3] = {58, 75, 128};
-int amarelo[3] = {111, 104, 59};
+int verde[3] = {67, 115, 71};
+int vermelho[3] = {178, 44, 44};
+int azul[3] = {31, 86, 147};
+int roxo[3] = {67, 66, 126};
+int amarelo[3] = {150, 117, 57};
 
-void parar() {
-  servoEsq.write(PARADO );
-  servoDir.write(PARADO );
+void parar() 
+{
+  servoEsq.write(angular(PARADO));
+  servoDir.write(angular(PARADO));
 }
 
-void moverFrente() {
-  servoEsq.write(MAX_FRENTE_ESQ);
-  servoDir.write(MAX_FRENTE_DIR);
+void moverFrente() 
+{
+  servoEsq.write(angular(velFrentEsq));
+  servoDir.write(angular(VelFrentDir));
 }
 
-// CORREÇÃO: Removemos moverFrente() daqui para permitir controle temporal no loop
-void virarDireita() {
-  servoEsq.write(MAX_FRENTE_ESQ);
-  servoDir.write(PARADO); 
+void virarDireita() 
+{
+  servoEsq.write(angular(velFrentEsq));
+  servoDir.write(angular(PARADO)); 
 }
 
-void virarEsquerda() {
-  servoDir.write(MAX_FRENTE_DIR);
-  servoEsq.write(PARADO);
+void virarEsquerda() 
+{
+  servoDir.write(angular(VelFrentDir));
+  servoEsq.write(angular(PARADO));
 }
 
-void comemora() {
-  servoDir.write(MAX_FRENTE_DIR);
-  servoEsq.write(MAX_TRAS_ESQ);
+void comemora() 
+{
+  servoDir.write(angular(VelFrentDir));
+  servoEsq.write(angular(velTrasEsq));
 }
 
-bool verificaCor(float r, float g, float b, int alvo[]) {
+bool verificaCor(float r, float g, float b, int alvo[]) 
+{
   return (r > alvo[0] - INTERVALO && r < alvo[0] + INTERVALO) &&
          (g > alvo[1] - INTERVALO && g < alvo[1] + INTERVALO) &&
          (b > alvo[2] - INTERVALO && b < alvo[2] + INTERVALO);
 }
 
-void setup() {
+void setup() 
+{
   Serial.begin(9600);
+  Serial.println("Comunicação Serial Inicializada");
   servoEsq.attach(PIN_SERVO_ESQ);
   servoDir.attach(PIN_SERVO_DIR);
   parar(); 
   
   pinMode(LedEnable_integrated, OUTPUT);
+  pinMode(LedEnable_dedicated, OUTPUT);
+  
   analogWrite(LedEnable_integrated, 200); 
   analogWrite(LedEnable_dedicated, 90);
+
   if (tcs.begin()) 
   {
-    Serial.println("Sensor encontrado");
-  } else 
+    Serial.println("Sensor RGB Inicializado");
+  } 
+  else 
   {
-    Serial.println("TCS34725 nao encontrado. reinicie o robô.");
     while (1);
+    {
+      Serial.println("TCS34725 nao encontrado. reinicie o robô.");
+    }
   }
 }
 
@@ -109,11 +128,11 @@ void loop()
   tcs.getRGB(&r, &g, &b);
 
   // Debug (opcional, remova para performance)
-  Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
+  //Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
 
   if (verificaCor(r, g, b, verde)) 
   {
-    if (!detectouCor) 
+    if (!detectouCor && !velocidade) 
     {
       velocidade = true;
       delay(3000);
@@ -129,7 +148,7 @@ void loop()
     {
       Serial.println("Azul: VIRAR DIR + FRENTE");
       virarDireita();
-      delay(800); // CORREÇÃO: Tempo para realizar a curva
+      delay(1000); 
       moverFrente();
       detectouCor = true;
     }
@@ -138,9 +157,8 @@ void loop()
   {
     if (!detectouCor && velocidade) 
     {
-      Serial.println("Vermelho: PARAR 3s");
+      Serial.println("Vermelho: PARAR");
       parar();
-      delay(5000);
       detectouCor = true;
       velocidade = false;//fim de percurso
     }
@@ -151,7 +169,7 @@ void loop()
     {
       Serial.println("Roxo: VIRAR ESQ + FRENTE");
       virarEsquerda();
-      delay(800); // CORREÇÃO: Tempo para realizar a curva
+      delay(1000); 
       moverFrente();
       detectouCor = true;
     }
@@ -162,7 +180,7 @@ void loop()
     {
       Serial.println("Amarelo: COMEMORA");
       comemora();
-      delay(5000); // CORREÇÃO: Tempo para executar o giro
+      delay(5000);
       parar();
       detectouCor = true;
       velocidade = false;//fim de percurso
@@ -170,7 +188,7 @@ void loop()
   }
   else 
   {
-    Serial.println("Cor desconhecida / Chão");
+    //Serial.println("Cor desconhecida / Chão");
     detectouCor = false; 
     
   }
