@@ -34,7 +34,7 @@
 #define LedEnable_dedicated 6
 
 // --- Calibração Servos ---
-#define VELOCIDADE_L 50 // -------->Caso motores desiguais, calibrar aqui (usar porcentagem)
+#define VELOCIDADE_L 50 // -------->Caso motores desiguais, calibrar aqui
 #define VELOCIDADE_R 50
 const int PARADO =0;
 const int velFrentEsq = VELOCIDADE_L;
@@ -60,11 +60,11 @@ int angular(int velocidade)
   return map(velocidade, -100, 100,0,180 );
 }
 
-// Cores alvo (R, G, B) ------------------------------------ Calibrar cores aqui
+// Cores alvo (R, G, B)
 int verde[3] = {51, 108, 91};
 int vermelho[3] = {170, 44, 52};
 int azul[3] = {35, 96, 154};
-int roxo[3] = {137, 63, 122};
+int roxo[3] = {150, 60, 98};
 int amarelo[3] = {150, 117, 57};
 
 void parar() {
@@ -194,7 +194,7 @@ void loop()
   tcs.getRGB(&r, &g, &b);
 
   // Debug (opcional, remova para performance)
-  Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b);
+  Serial.print("R: "); Serial.print(r); Serial.print(" G: "); Serial.print(g); Serial.print(" B: "); Serial.println(b); Serial.print("angle:"); Serial.println(avgAngleZ);
   // inicialização do giroscópio no loop
   int16_t raw[6];
   unsigned long currentTime = micros();
@@ -307,6 +307,7 @@ void loop()
       {
         girando = false;
         moverFrente();
+        delay(400);
       }
     }
 
@@ -320,6 +321,7 @@ void loop()
       {
         girando = false;
         moverFrente();
+        delay(400);
       }
     }
   }
