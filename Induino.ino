@@ -6,7 +6,7 @@
 //Sda --------------- A4
 //Led --------------- d5 (Pwm)
 
-//Ponte H ----------- Arduino Nano
+//servos ----------- Arduino Nano
 //in1 --------------- d2
 //in2 --------------- d3
 
